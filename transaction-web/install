@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Auto-Launcher for Laravel Project Installer
+# Detects OS and runs appropriate installer script
+
+echo "🚀 Laravel Project Auto-Installer"
+echo "================================="
+echo
+
+# Detect operating system
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OS" == "Windows_NT" ]]; then
+    echo "🪟 Windows detected - Running install.bat"
+    echo
+    if [ -f "install.bat" ]; then
+        cmd //c install.bat
+    else
+        echo "❌ install.bat not found"
+        exit 1
+    fi
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "🍎 macOS detected - Running install.sh"
+    echo
+    if [ -f "install.sh" ]; then
+        chmod +x install.sh
+        ./install.sh
+    else
+        echo "❌ install.sh not found"
+        exit 1
+    fi
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    echo "🐧 Linux detected - Running install.sh"
+    echo
+    if [ -f "install.sh" ]; then
+        chmod +x install.sh
+        ./install.sh
+    else
+        echo "❌ install.sh not found"
+        exit 1
+    fi
+else
+    echo "❓ Unknown OS detected - Using PHP installer"
+    echo
+    if [ -f "install.php" ]; then
+        php install.php
+    else
+        echo "❌ install.php not found"
+        exit 1
+    fi
+fi

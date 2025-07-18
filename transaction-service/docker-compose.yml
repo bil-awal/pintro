@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: transaction_db
+    environment:
+      POSTGRES_DB: transaction_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "54320:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - transaction_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  go-transaction-service:
+    build: .
+    container_name: go_transaction_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - APP_NAME=Go Transaction Service
+      - APP_VERSION=1.0.0
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      - APP_ENV=development
+      - DEBUG=true
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=password
+      - DB_DATABASE=transaction_db
+      - DB_SSL_MODE=disable
+      - JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
+      - JWT_EXPIRE_HOURS=24
+      - MIDTRANS_SERVER_KEY=your-midtrans-server-key
+      - MIDTRANS_CLIENT_KEY=your-midtrans-client-key
+      - MIDTRANS_ENV=sandbox
+    ports:
+      - "8080:8080"
+    networks:
+      - transaction_network
+    restart: unless-stopped
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - transaction_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Adminer for database management (optional)
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    networks:
+      - transaction_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  transaction_network:
+    driver: bridge
