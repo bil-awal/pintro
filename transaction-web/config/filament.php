@@ -51,20 +51,19 @@ return [
     */
 
     'broadcasting' => [
-
-        'echo' => [
-            'broadcaster' => 'pusher',
-            'key' => env('VITE_PUSHER_APP_KEY'),
-            'cluster' => env('VITE_PUSHER_APP_CLUSTER'),
-            'wsHost' => env('VITE_PUSHER_HOST'),
-            'wsPort' => env('VITE_PUSHER_PORT', 443),
-            'wssPort' => env('VITE_PUSHER_PORT', 443),
-            'authEndpoint' => '/filament/broadcasting/auth',
-            'disableStats' => true,
-            'encrypted' => true,
-            'forceTLS' => true,
-        ],
-
+        // Disabled for now - uncomment and configure when needed
+        // 'echo' => [
+        //     'broadcaster' => 'pusher',
+        //     'key' => env('VITE_PUSHER_APP_KEY'),
+        //     'cluster' => env('VITE_PUSHER_APP_CLUSTER'),
+        //     'wsHost' => env('VITE_PUSHER_HOST'),
+        //     'wsPort' => env('VITE_PUSHER_PORT', 443),
+        //     'wssPort' => env('VITE_PUSHER_PORT', 443),
+        //     'authEndpoint' => '/filament/broadcasting/auth',
+        //     'disableStats' => true,
+        //     'encrypted' => true,
+        //     'forceTLS' => true,
+        // ],
     ],
 
     /*
@@ -111,5 +110,21 @@ return [
         'guard' => 'admin',
     ],
 
-
+    /*
+    |--------------------------------------------------------------------------
+    | Disable Content Security Policy
+    |--------------------------------------------------------------------------
+    */
+    
+    'spa_mode' => false,
+    'spa_url_exceptions' => [],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Development Settings
+    |--------------------------------------------------------------------------
+    */
+    
+    'disable_csp' => env('APP_ENV') === 'local',
+    
 ];

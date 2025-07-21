@@ -19,7 +19,30 @@ import (
 	"go-transaction-service/internal/infrastructure/external"
 	"go-transaction-service/internal/usecase"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
+	// Import docs for swagger documentation
+	_ "go-transaction-service/docs"
 )
+
+// @title Pintro Transaction Service API
+// @version 1.0
+// @description RESTful API for transaction service with balance management, payments, and authentication
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@pintro.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer " followed by a space and JWT token.
 
 func main() {
 	// Load configuration
@@ -35,9 +58,11 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("Starting Go Transaction Service", 
+	logger.Info("Starting Pintro Transaction Service", 
 		zap.String("version", cfg.App.Version),
-		zap.String("environment", cfg.App.Environment))
+		zap.String("environment", cfg.App.Environment),
+		zap.String("host", cfg.App.Host),
+		zap.String("port", cfg.App.Port))
 
 	// Initialize database
 	db, err := database.NewDatabase(cfg, logger)
@@ -45,6 +70,8 @@ func main() {
 		logger.Fatal("Failed to initialize database", zap.Error(err))
 	}
 	defer db.Close()
+
+	logger.Info("Database connection established successfully")
 
 	// Initialize repositories
 	userRepo := database.NewPostgresUserRepository(db.DB)
@@ -54,17 +81,19 @@ func main() {
 	var paymentGateway usecase.PaymentGateway
 	if cfg.App.Environment == "production" {
 		paymentGateway = external.NewMidtransPaymentGateway(cfg, logger)
+		logger.Info("Using Midtrans payment gateway for production")
 	} else {
 		// Use mock payment gateway for development/testing
 		paymentGateway = external.NewMockPaymentGateway(logger)
+		logger.Info("Using mock payment gateway for development")
 	}
 
 	// Initialize use cases
 	authUseCase := usecase.NewAuthUseCase(userRepo, cfg)
 	transactionUseCase := usecase.NewTransactionUseCase(transactionRepo, userRepo, paymentGateway)
 
-	// Initialize validator
-	validator := validator.New()
+	// Initialize validator with custom validation rules
+	validator := initValidator()
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authUseCase, validator, logger)
@@ -77,7 +106,7 @@ func main() {
 	router := httpdelivery.NewRouter(authHandler, transactionHandler, authMiddleware)
 	router.SetupRoutes()
 
-	// Start server
+	// Configure HTTP server
 	server := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.App.Host, cfg.App.Port),
 		ReadTimeout:  30 * time.Second,
@@ -88,7 +117,8 @@ func main() {
 	// Start server in goroutine
 	go func() {
 		logger.Info("Starting HTTP server", 
-			zap.String("address", server.Addr))
+			zap.String("address", server.Addr),
+			zap.String("swagger_url", fmt.Sprintf("http://%s/swagger/index.html", server.Addr)))
 		
 		if err := router.Start(server.Addr); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Failed to start server", zap.Error(err))
@@ -98,6 +128,8 @@ func main() {
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	
+	logger.Info("Service started successfully. Press Ctrl+C to stop...")
 	<-quit
 
 	logger.Info("Shutting down server...")
@@ -107,12 +139,14 @@ func main() {
 	defer cancel()
 
 	if err := router.Shutdown(ctx); err != nil {
-		logger.Error("Failed to shutdown server", zap.Error(err))
+		logger.Error("Failed to shutdown server gracefully", zap.Error(err))
+		os.Exit(1)
 	}
 
-	logger.Info("Server shutdown complete")
+	logger.Info("Server shutdown completed successfully")
 }
 
+// initLogger initializes the application logger based on environment
 func initLogger(cfg *config.Config) (*zap.Logger, error) {
 	var logger *zap.Logger
 	var err error
@@ -121,11 +155,22 @@ func initLogger(cfg *config.Config) (*zap.Logger, error) {
 		// Production logger configuration
 		config := zap.NewProductionConfig()
 		config.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+		config.Encoding = "json"
+		config.OutputPaths = []string{
+			"stdout",
+			"./logs/app.log",
+		}
+		config.ErrorOutputPaths = []string{
+			"stderr",
+			"./logs/error.log",
+		}
 		logger, err = config.Build()
 	} else {
 		// Development logger configuration
 		config := zap.NewDevelopmentConfig()
 		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		config.Encoding = "console"
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		logger, err = config.Build()
 	}
 
@@ -134,4 +179,14 @@ func initLogger(cfg *config.Config) (*zap.Logger, error) {
 	}
 
 	return logger, nil
+}
+
+// initValidator initializes the validator with custom validation rules
+func initValidator() *validator.Validate {
+	validate := validator.New()
+	
+	// Add custom validation rules here if needed
+	// Example: validate.RegisterValidation("customtag", customValidationFunc)
+	
+	return validate
 }

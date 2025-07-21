@@ -54,7 +54,7 @@ class Register extends BaseRegister
             ]);
     }
 
-    public function register(): void
+    public function register(): ?\Filament\Http\Responses\Auth\Contracts\RegistrationResponse
     {
         try {
             $data = $this->form->getState();
@@ -90,8 +90,8 @@ class Register extends BaseRegister
             // Log in the user
             Auth::login($user);
 
-            // Redirect to dashboard
-            redirect()->intended(filament()->getHomeUrl());
+            // Return redirect response
+            return redirect()->intended(filament()->getHomeUrl());
 
         } catch (ValidationException $e) {
             throw $e;

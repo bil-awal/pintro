@@ -6,11 +6,13 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use App\Services\GoTransactionService;
+use App\Models\TransactionModel;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Support\Colors\Color;
+use Illuminate\Database\Eloquent\Collection;
 
 class RecentTransactions extends BaseWidget
 {
@@ -23,7 +25,7 @@ class RecentTransactions extends BaseWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query($this->getTableQuery())
+            ->records($this->getTableRecords())
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Date')
@@ -93,14 +95,19 @@ class RecentTransactions extends BaseWidget
             ->paginated(false);
     }
 
-    protected function getTableQuery()
+    protected function getTableQuery(): ?\Illuminate\Database\Eloquent\Builder
+    {
+        return null;
+    }
+
+    public function getTableRecords(): Collection
     {
         try {
             $goService = app(GoTransactionService::class);
             $token = Session::get('user_token');
 
             if (!$token) {
-                return collect([]);
+                return new Collection();
             }
 
             $transactions = $goService->getUserTransactions($token, [
@@ -108,9 +115,11 @@ class RecentTransactions extends BaseWidget
                 'offset' => 0,
             ]);
 
-            // Convert to collection for Filament table
-            return collect($transactions)->map(function ($transaction) {
-                return (object) [
+            // Convert to Eloquent Collection of TransactionModel instances
+            $collection = new Collection();
+            
+            foreach ($transactions as $transaction) {
+                $model = new TransactionModel([
                     'id' => $transaction['id'] ?? '',
                     'created_at' => isset($transaction['created_at']) 
                         ? \Carbon\Carbon::parse($transaction['created_at']) 
@@ -123,8 +132,11 @@ class RecentTransactions extends BaseWidget
                     'fee' => $transaction['fee'] ?? 0,
                     'currency' => $transaction['currency'] ?? 'IDR',
                     'metadata' => $transaction['metadata'] ?? null,
-                ];
-            });
+                ]);
+                $collection->add($model);
+            }
+            
+            return $collection;
 
         } catch (\Exception $e) {
             Log::error('Recent transactions widget error', [
@@ -132,7 +144,7 @@ class RecentTransactions extends BaseWidget
                 'user_id' => Session::get('user_id'),
             ]);
 
-            return collect([]);
+            return new Collection();
         }
     }
 }

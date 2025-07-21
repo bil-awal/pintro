@@ -26,17 +26,20 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->authGuard('admin')
             ->login()
+            ->authGuard('admin')
+            ->brandName('Pintro Financial Admin')
             ->colors([
                 'primary' => Color::Amber,
             ])
-            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
+            // Force HTTP scheme to prevent HTTPS redirect
+            ->spa(false) // Disable SPA mode to prevent scheme issues
+            ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
+            ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                \App\Filament\Admin\Pages\Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
+            ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
                 Widgets\FilamentInfoWidget::class,
@@ -54,6 +57,27 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            // Add custom configuration to prevent HTTPS forcing
+            ->renderHook(
+                'panels::auth.login.form.before',
+                fn (): string => '<script>
+                    // Prevent any HTTPS redirects in Filament
+                    if (window.location.protocol === "https:" && window.location.hostname === "localhost") {
+                        window.location.href = window.location.href.replace("https:", "http:");
+                    }
+                </script>'
+            );
+    }
+    
+    public function boot(): void
+    {
+        parent::boot();
+        
+        // Force HTTP for Filament admin panel in development
+        if (app()->environment('local', 'development') || env('FORCE_HTTPS', false) === false) {
+            // Override Filament's URL generation to use HTTP
+            $this->app['url']->forceScheme('http');
+        }
     }
 }

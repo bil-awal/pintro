@@ -1,0 +1,51 @@
+# Laravel .dockerignore
+node_modules
+npm-debug.log
+yarn-error.log
+.git
+.gitignore
+.env.local
+.env.*.local
+README.md
+Dockerfile
+docker-compose*
+.dockerignore
+
+# Laravel specific
+/vendor
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/storage/logs/*
+!/storage/logs/.gitkeep
+.env.backup
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+
+# IDE files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+/tests
+phpunit.xml
+.phpunit.cache
+
+# Development
+.env.example

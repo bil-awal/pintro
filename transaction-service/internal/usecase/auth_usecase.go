@@ -18,6 +18,7 @@ type AuthUseCase interface {
 	Login(ctx context.Context, req entities.LoginRequest) (*entities.LoginResponse, error)
 	ValidateToken(ctx context.Context, tokenString string) (*entities.JWTClaims, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*entities.User, error)
+	GenerateTokenResponse(user *entities.User) (*entities.LoginResponse, error)
 }
 
 type authUseCase struct {
@@ -142,6 +143,20 @@ func (a *authUseCase) GetUserByID(ctx context.Context, userID uuid.UUID) (*entit
 	}
 
 	return user, nil
+}
+
+func (a *authUseCase) GenerateTokenResponse(user *entities.User) (*entities.LoginResponse, error) {
+	// Generate JWT token
+	token, expiresAt, err := a.generateJWT(user)
+	if err != nil {
+		return nil, customerrors.NewInternalError("Failed to generate token", err)
+	}
+
+	return &entities.LoginResponse{
+		Token:     token,
+		User:      *user,
+		ExpiresAt: expiresAt,
+	}, nil
 }
 
 func (a *authUseCase) generateJWT(user *entities.User) (string, time.Time, error) {

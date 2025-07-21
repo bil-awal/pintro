@@ -72,7 +72,7 @@ func LoadConfig() (*Config, error) {
 			SSLMode:  getEnv("DB_SSL_MODE", "disable"),
 		},
 		JWT: JWTConfig{
-			SecretKey:      getEnv("JWT_SECRET_KEY", "your-secret-key"),
+			SecretKey:      getEnv("JWT_SECRET_KEY", "8c100781e252cc0a9c588ea6bcbd60d750b13b42957276415895b028d24427e3"),
 			ExpireDuration: time.Duration(jwtExpiry) * time.Hour,
 		},
 		Midtrans: MidtransConfig{

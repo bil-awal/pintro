@@ -26,6 +26,7 @@ class FilamentAdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->authGuard('admin')
             ->colors([
                 'danger' => Color::Rose,
                 'gray' => Color::Gray,
@@ -58,23 +59,12 @@ class FilamentAdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->authGuard('admin')
             ->brandName('Pintro Financial Admin')
-            ->brandLogo(asset('images/logo.png'))
-            ->brandLogoHeight('2rem')
-            ->favicon(asset('images/favicon.ico'))
-            ->navigationGroups([
-                'User Management',
-                'Transaction Management',
-                'System Administration',
-                'Reports & Analytics',
-            ])
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth('full')
             ->font('Inter')
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
-            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
-            ->spa();
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k']);
     }
 }

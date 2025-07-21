@@ -94,3 +94,19 @@ vendor/
 
 # Build cache
 .cache/
+
+# Swagger generated files (optional - you may want to commit these)
+# docs/docs.go
+# docs/swagger.json
+# docs/swagger.yaml
+
+# Go modules cache
+go.sum.bak
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# Local scripts and configs
+local_*
+*.local.*

@@ -1,13 +1,24 @@
-.PHONY: build run test clean docker-build docker-run docker-compose-up docker-compose-down migrate-up migrate-down help
+.PHONY: build run test clean docker-build docker-run docker-compose-up docker-compose-down migrate-up migrate-down fix-deps swagger-gen swagger-fmt help
 
 # Variables
 APP_NAME=go-transaction-service
 DOCKER_IMAGE=go-transaction-service:latest
 DOCKER_COMPOSE_FILE=docker-compose.yml
 
+# Fix dependencies and resolve build issues
+fix-deps:
+	@echo "🔧 Fixing dependencies and build issues..."
+	@go clean -cache
+	@rm -f go.sum
+	@go mod download
+	@go mod tidy
+	@go mod verify
+	@echo "✅ Dependencies fixed successfully!"
+
 # Build the application
-build:
+build: fix-deps
 	@echo "Building $(APP_NAME)..."
+	@mkdir -p bin
 	@go build -o bin/$(APP_NAME) ./cmd/server
 
 # Run the application
@@ -57,7 +68,7 @@ deps:
 	@go mod download
 
 # Build Docker image
-docker-build:
+docker-build: fix-deps swagger-gen
 	@echo "Building Docker image..."
 	@docker build -t $(DOCKER_IMAGE) .
 
@@ -110,15 +121,32 @@ setup-dev:
 # Run all checks (format, lint, test)
 check: format lint test
 
+# Install Swagger
+install-swagger:
+	@echo "Installing Swagger tools..."
+	@go install github.com/swaggo/swag/cmd/swag@latest
+
+# Generate Swagger documentation
+swagger-gen:
+	@echo "Generating Swagger documentation..."
+	@swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
+
+# Format Swagger documentation
+swagger-fmt:
+	@echo "Formatting Swagger documentation..."
+	@swag fmt -g cmd/server/main.go
+
 # Install development dependencies
 install-dev-deps:
 	@echo "Installing development dependencies..."
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@go install github.com/golang/mock/mockgen@latest
+	@go install github.com/swaggo/swag/cmd/swag@latest
 
 # Help
 help:
 	@echo "Available commands:"
+	@echo "  fix-deps           - Fix dependencies and resolve build issues"
 	@echo "  build              - Build the application"
 	@echo "  run                - Run the application"
 	@echo "  test               - Run tests"
@@ -140,5 +168,8 @@ help:
 	@echo "  create-migration   - Create a new migration"
 	@echo "  setup-dev          - Setup development environment"
 	@echo "  check              - Run all checks (format, lint, test)"
+	@echo "  install-swagger    - Install Swagger tools"
+	@echo "  swagger-gen        - Generate Swagger documentation"
+	@echo "  swagger-fmt        - Format Swagger documentation"
 	@echo "  install-dev-deps   - Install development dependencies"
 	@echo "  help               - Show this help message"

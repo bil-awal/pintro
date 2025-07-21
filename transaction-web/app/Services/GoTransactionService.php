@@ -4,8 +4,6 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Transaction;
-use App\Models\User;
 
 class GoTransactionService
 {
@@ -14,38 +12,104 @@ class GoTransactionService
 
     public function __construct()
     {
-        $this->baseUrl = config('services.go_transaction.url', 'http://localhost:8080');
+        $this->baseUrl = rtrim(env('GO_TRANSACTION_SERVICE_URL', 'http://localhost:8080'), '/');
         $this->headers = [
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
-            'X-API-Key' => config('services.go_transaction.api_key', ''),
         ];
     }
 
     /**
-     * Get all transactions from Go service.
+     * Get all transactions from Go service with improved error handling.
      */
-    public function getTransactions(array $filters = []): array
+    public function getTransactions(array $filters = [], ?string $token = null): array
     {
         try {
-            $response = Http::withHeaders($this->headers)
+            $headers = $this->headers;
+            
+            // Add authorization header if token is provided
+            if ($token) {
+                $headers['Authorization'] = 'Bearer ' . $token;
+            }
+
+            // Log the request details for debugging
+            Log::info('Making request to Go service for transactions', [
+                'url' => $this->baseUrl . '/api/v1/transactions',
+                'filters' => $filters,
+                'has_token' => !is_null($token),
+                'token_length' => $token ? strlen($token) : 0,
+                'headers' => array_keys($headers)
+            ]);
+
+            $response = Http::withHeaders($headers)
                 ->timeout(30)
+                ->retry(3, 100) // Retry 3 times with 100ms delay
                 ->get($this->baseUrl . '/api/v1/transactions', $filters);
 
+            Log::info('Go service transactions response', [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'has_data' => !empty($response->json('data')),
+                'response_size' => strlen($response->body())
+            ]);
+
             if ($response->successful()) {
-                return $response->json('data', []);
+                $data = $response->json('data', []);
+                
+                Log::info('Successfully fetched transactions from Go service', [
+                    'transaction_count' => count($data),
+                    'filters_applied' => $filters
+                ]);
+                
+                return $data;
+            }
+
+            // Handle specific error cases
+            if ($response->status() === 401) {
+                Log::warning('Unauthorized access to Go service transactions', [
+                    'status' => $response->status(),
+                    'has_token' => !is_null($token),
+                    'response' => $response->body()
+                ]);
+                
+                // Try without token for admin endpoints
+                if ($token) {
+                    Log::info('Retrying without token...');
+                    return $this->getTransactions($filters, null);
+                }
+            }
+
+            if ($response->status() === 404) {
+                Log::warning('Transactions endpoint not found', [
+                    'url' => $this->baseUrl . '/api/v1/transactions',
+                    'status' => $response->status()
+                ]);
+                
+                // Try alternative endpoints
+                return $this->tryAlternativeTransactionEndpoints($filters, $token);
             }
 
             Log::error('Failed to fetch transactions from Go service', [
                 'status' => $response->status(),
                 'response' => $response->body(),
+                'url' => $this->baseUrl . '/api/v1/transactions'
+            ]);
+
+            return [];
+
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('Connection error to Go transaction service', [
+                'error' => $e->getMessage(),
+                'url' => $this->baseUrl . '/api/v1/transactions',
+                'timeout' => 30
             ]);
 
             return [];
         } catch (\Exception $e) {
-            Log::error('Error connecting to Go transaction service', [
+            Log::error('Unexpected error connecting to Go transaction service', [
                 'error' => $e->getMessage(),
                 'url' => $this->baseUrl . '/api/v1/transactions',
+                'trace' => $e->getTraceAsString()
             ]);
 
             return [];
@@ -200,6 +264,7 @@ class GoTransactionService
     public function createTopup(array $data): ?array
     {
         try {
+            
             $response = Http::withHeaders($this->headers)
                 ->timeout(30)
                 ->post($this->baseUrl . '/api/v1/topup', $data);
@@ -264,8 +329,77 @@ class GoTransactionService
         }
     }
 
+
+
     /**
-     * Get system health from Go service.
+     * Test Go service connectivity and endpoints.
+     */
+    public function testConnectivity(): array
+    {
+        $results = [];
+
+        // Test health endpoint
+        try {
+            $response = Http::withHeaders($this->headers)
+                ->timeout(10)
+                ->get($this->baseUrl . '/health');
+
+            $results['health'] = [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'response_time' => $response->transferStats ? $response->transferStats->getTransferTime() * 1000 : null,
+                'body' => $response->json()
+            ];
+        } catch (\Exception $e) {
+            $results['health'] = [
+                'error' => $e->getMessage()
+            ];
+        }
+
+        // Test transaction endpoint without auth
+        try {
+            $response = Http::withHeaders($this->headers)
+                ->timeout(10)
+                ->get($this->baseUrl . '/api/v1/transactions');
+
+            $results['transactions_no_auth'] = [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'body_preview' => substr($response->body(), 0, 200)
+            ];
+        } catch (\Exception $e) {
+            $results['transactions_no_auth'] = [
+                'error' => $e->getMessage()
+            ];
+        }
+
+        // Test with admin token if available
+        $adminToken = session('admin_token');
+        if ($adminToken) {
+            try {
+                $response = Http::withHeaders(array_merge($this->headers, [
+                    'Authorization' => 'Bearer ' . $adminToken
+                ]))
+                    ->timeout(10)
+                    ->get($this->baseUrl . '/api/v1/transactions');
+
+                $results['transactions_with_auth'] = [
+                    'status' => $response->status(),
+                    'successful' => $response->successful(),
+                    'body_preview' => substr($response->body(), 0, 200)
+                ];
+            } catch (\Exception $e) {
+                $results['transactions_with_auth'] = [
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get system health with detailed information.
      */
     public function getSystemHealth(): array
     {
@@ -277,8 +411,9 @@ class GoTransactionService
             if ($response->successful()) {
                 return [
                     'status' => 'healthy',
-                    'response_time' => $response->transferStats->getTransferTime() * 1000, // Convert to ms
+                    'response_time' => $response->transferStats ? $response->transferStats->getTransferTime() * 1000 : null,
                     'data' => $response->json(),
+                    'go_service_url' => $this->baseUrl
                 ];
             }
 
@@ -286,12 +421,15 @@ class GoTransactionService
                 'status' => 'unhealthy',
                 'response_time' => null,
                 'error' => 'HTTP ' . $response->status(),
+                'response_body' => $response->body(),
+                'go_service_url' => $this->baseUrl
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'unreachable',
                 'response_time' => null,
                 'error' => $e->getMessage(),
+                'go_service_url' => $this->baseUrl
             ];
         }
     }
@@ -372,32 +510,47 @@ class GoTransactionService
     public function login(array $credentials): ?array
     {
         try {
+            Log::info('Attempting Go API auth login', [
+                'email' => $credentials['email'],
+                'endpoint' => $this->baseUrl . '/api/v1/auth/login'
+            ]);
+
             $response = Http::withHeaders($this->headers)
                 ->timeout(30)
-                ->post($this->baseUrl . '/api/v1/login', $credentials);
+                ->post($this->baseUrl . '/api/v1/auth/login', $credentials);
+
+            Log::info('Go API auth response details', [
+                'email' => $credentials['email'],
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'body_preview' => substr($response->body(), 0, 200)
+            ]);
 
             if ($response->successful()) {
-                $data = $response->json('data');
+                $responseData = $response->json();
                 
-                Log::info('User login successful via Go service', [
-                    'user_id' => $data['user']['id'] ?? null,
-                    'email' => $credentials['email'],
-                ]);
+                if (isset($responseData['success']) && $responseData['success'] && isset($responseData['data'])) {
+                    Log::info('User login successful via Go service', [
+                        'user_id' => $responseData['data']['user']['id'] ?? null,
+                        'email' => $credentials['email'],
+                        'has_token' => isset($responseData['data']['token'])
+                    ]);
 
-                return $data;
+                    return $responseData['data'];
+                }
             }
 
             Log::error('Failed to login via Go service', [
                 'email' => $credentials['email'],
                 'status' => $response->status(),
-                'response' => $response->body(),
+                'response' => $response->body()
             ]);
 
             return null;
         } catch (\Exception $e) {
             Log::error('Error logging in via Go service', [
                 'email' => $credentials['email'],
-                'error' => $e->getMessage(),
+                'error' => $e->getMessage()
             ]);
 
             return null;
@@ -410,9 +563,15 @@ class GoTransactionService
     public function register(array $userData): ?array
     {
         try {
-            $response = Http::withHeaders($this->headers)
+            // Use minimal headers for auth endpoints (no X-API-Key)
+            $authHeaders = [
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ];
+
+            $response = Http::withHeaders($authHeaders)
                 ->timeout(30)
-                ->post($this->baseUrl . '/api/v1/register', $userData);
+                ->post($this->baseUrl . '/api/v1/auth/register', $userData);
 
             if ($response->successful()) {
                 $data = $response->json('data');
@@ -512,24 +671,27 @@ class GoTransactionService
     {
         try {
             $response = Http::withHeaders(array_merge($this->headers, [
-                'Authorization' => 'Bearer ' . $token,
+                'Authorization' => 'Bearer ' . $token
             ]))
                 ->timeout(30)
-                ->get($this->baseUrl . '/api/v1/profile');
+                ->get($this->baseUrl . '/api/v1/user/profile');
 
             if ($response->successful()) {
-                return $response->json('data');
+                $responseData = $response->json();
+                if (isset($responseData['success']) && $responseData['success'] && isset($responseData['data'])) {
+                    return $responseData['data'];
+                }
             }
 
             Log::error('Failed to get user profile via Go service', [
                 'status' => $response->status(),
-                'response' => $response->body(),
+                'response' => $response->body()
             ]);
 
             return null;
         } catch (\Exception $e) {
             Log::error('Error getting user profile via Go service', [
-                'error' => $e->getMessage(),
+                'error' => $e->getMessage()
             ]);
 
             return null;
@@ -675,46 +837,39 @@ class GoTransactionService
     }
 
     /**
-     * Get authenticated user balance.
+     * Create transfer transaction via Go service.
      */
-    public function getAuthenticatedUserBalance(string $token): ?float
+    public function createTransfer(array $data, string $token): ?array
     {
         try {
             $response = Http::withHeaders(array_merge($this->headers, [
-                'Authorization' => 'Bearer ' . $token,
+                'Authorization' => 'Bearer ' . $token
             ]))
                 ->timeout(30)
-                ->get($this->baseUrl . '/api/v1/balance');
+                ->post($this->baseUrl . '/api/v1/transactions/transfer', $data);
 
             if ($response->successful()) {
-                return $response->json('data.balance');
+                $responseData = $response->json();
+                if (isset($responseData['success']) && $responseData['success'] && isset($responseData['data'])) {
+                    Log::info('Transfer transaction created successfully', ['amount' => $data['amount'] ?? null]);
+                    return $responseData['data'];
+                }
             }
 
-            Log::error('Failed to fetch authenticated user balance from Go service', [
+            Log::error('Failed to create transfer via Go service', [
+                'data' => $data,
                 'status' => $response->status(),
-                'response' => $response->body(),
+                'response' => $response->body()
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Error fetching authenticated user balance from Go service', [
-                'error' => $e->getMessage(),
+            Log::error('Error creating transfer via Go service', [
+                'data' => $data,
+                'error' => $e->getMessage()
             ]);
 
             return null;
         }
-    }
-
-    /**
-     * Helper method to get Laravel user ID from Go user ID.
-     */
-    private function getUserIdByGoId(?string $goUserId): ?int
-    {
-        if (!$goUserId) {
-            return null;
-        }
-
-        $user = User::where('user_id', $goUserId)->first();
-        return $user?->id;
     }
 }

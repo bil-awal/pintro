@@ -32,6 +32,7 @@ A comprehensive, production-ready financial transaction system built with Go usi
 - **Docker Support**: Full containerization with Docker Compose
 - **Structured Logging**: Zap logger with contextual logging
 - **Health Checks**: Application and database health monitoring
+- **Swagger Documentation**: Interactive API documentation with OpenAPI 3.0
 - **API Documentation**: RESTful API with comprehensive endpoint documentation
 
 ## 🏗️ Architecture
@@ -84,6 +85,7 @@ go-transaction-service/
 | **Testing** | Testify + Gomock | Latest | Unit testing framework |
 | **Logging** | Zap | v1.26+ | Structured logging |
 | **Migration** | golang-migrate | Latest | Database schema management |
+| **Documentation** | Swagger/OpenAPI | 3.0 | Interactive API documentation |
 | **Containerization** | Docker + Compose | Latest | Application containerization |
 
 ## 🚦 Getting Started
@@ -100,6 +102,8 @@ go-transaction-service/
 | **Disk Space** | 1GB | 2GB+ |
 
 ### Quick Installation
+
+⚠️ **Important**: If you encounter build issues with missing go.sum entries, please see [BUILD_FIX.md](BUILD_FIX.md) for solutions.
 
 #### 🖥️ Windows (Recommended)
 
@@ -175,7 +179,7 @@ DB_DATABASE=transaction_db
 DB_SSL_MODE=disable
 
 # JWT Configuration
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production-128-chars
+JWT_SECRET_KEY=8c100781e252cc0a9c588ea6bcbd60d750b13b42957276415895b028d24427e3
 JWT_EXPIRE_HOURS=24
 
 # Midtrans Configuration (Get from https://midtrans.com/)
@@ -233,11 +237,32 @@ air
 
 ## 📚 API Documentation
 
+### Swagger UI Documentation
+
+This project includes comprehensive **Swagger/OpenAPI 3.0** documentation for all endpoints.
+
+**🌐 Access Swagger UI**: http://localhost:8080/swagger/index.html
+
+#### Generate & Update Documentation
+
+```bash
+# Install Swagger tools
+make install-swagger
+
+# Generate Swagger docs
+make swagger-gen
+
+# Format Swagger annotations
+make swagger-fmt
+```
+
 ### Base URL & Health Check
 
 ```
 Base URL: http://localhost:8080/api/v1
 Health Check: http://localhost:8080/health
+Swagger UI: http://localhost:8080/swagger/index.html
+OpenAPI Spec: http://localhost:8080/swagger/doc.json
 ```
 
 ### Authentication Headers
@@ -649,7 +674,7 @@ APP_HOST=0.0.0.0
 APP_PORT=8080
 
 # Security
-JWT_SECRET_KEY=your-256-bit-secret-key-for-production
+JWT_SECRET_KEY=8c100781e252cc0a9c588ea6bcbd60d750b13b42957276415895b028d24427e3
 JWT_EXPIRE_HOURS=1
 
 # Database (use managed service)
@@ -797,6 +822,52 @@ users to extend their session without re-login.
 
 Closes #123
 ```
+
+## 🔧 Troubleshooting
+
+### Common Build Issues
+
+#### Missing go.sum entries for Swagger packages
+```bash
+# Quick fix
+make fix-deps
+
+# Or run fix script
+./scripts/fix-dependencies.sh  # Linux/macOS
+scripts\fix-dependencies.bat   # Windows
+```
+
+#### Docker build fails
+```bash
+# Fix dependencies first, then build
+make fix-deps
+make docker-build
+```
+
+#### Swagger UI not accessible
+```bash
+# Generate Swagger docs
+make swagger-gen
+
+# Then restart the application
+make run
+```
+
+### Complete Troubleshooting Guide
+
+For detailed troubleshooting instructions, see [BUILD_FIX.md](BUILD_FIX.md).
+
+### Getting Help
+
+If issues persist:
+1. Check [BUILD_FIX.md](BUILD_FIX.md) for build-specific issues
+2. Ensure all system requirements are met
+3. Try a complete clean rebuild:
+   ```bash
+   make clean
+   make fix-deps
+   make build
+   ```
 
 ## 📞 Support & Community
 

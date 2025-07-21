@@ -2,122 +2,221 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
 
-class Admin extends Authenticatable implements FilamentUser
+class Admin extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use Notifiable;
 
+    /**
+     * The table associated with the model.
+     * Set to null since we're not using database authentication
+     */
+    protected $table = null;
+
+    /**
+     * The connection name for the model.
+     * Set to null since we're not using database
+     */
+    protected $connection = null;
+
+    /**
+     * The attributes that are mass assignable.
+     */
     protected $fillable = [
-        'name',
+        'id',
         'email',
-        'password',
-        'roles',
-        'permissions',
-        'is_active',
-        'last_login_at',
+        'first_name',
+        'last_name',
+        'phone',
+        'status',
+        'balance',
+        'created_at',
+        'updated_at',
     ];
 
+    /**
+     * The attributes that should be hidden for serialization.
+     */
     protected $hidden = [
         'password',
-        'remember_token',
+        'token',
     ];
 
-    protected function casts(): array
+    /**
+     * The attributes that should be cast.
+     */
+    protected $casts = [
+        'balance' => 'decimal:2',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    /**
+     * Indicates if the model should be timestamped.
+     */
+    public $timestamps = false;
+
+    /**
+     * Indicates if the IDs are auto-incrementing.
+     */
+    public $incrementing = false;
+
+    /**
+     * The data type of the auto-incrementing ID.
+     */
+    protected $keyType = 'string';
+
+    /**
+     * Get the admin's full name.
+     */
+    public function getFullNameAttribute()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'roles' => 'array',
-            'permissions' => 'array',
-            'is_active' => 'boolean',
-            'last_login_at' => 'datetime',
-        ];
+        return "{$this->first_name} {$this->last_name}";
     }
 
     /**
-     * Get activity logs for this admin.
+     * Get the admin's display name.
      */
-    public function activityLogs(): HasMany
+    public function getDisplayNameAttribute()
     {
-        return $this->hasMany(AdminActivityLog::class);
+        return $this->full_name ?: $this->email;
     }
 
     /**
-     * Get approved transactions.
+     * Check if the admin is active.
      */
-    public function approvedTransactions(): HasMany
+    public function isActive()
     {
-        return $this->hasMany(Transaction::class, 'approved_by');
+        return $this->status === 'active';
     }
 
     /**
-     * Get updated system settings.
+     * Check if the admin is blocked.
      */
-    public function updatedSettings(): HasMany
+    public function isBlocked()
     {
-        return $this->hasMany(SystemSetting::class, 'updated_by');
+        return $this->status === 'blocked';
     }
 
     /**
-     * Check if admin has a specific role.
+     * Check if the admin is inactive.
      */
-    public function hasRole(string $role): bool
+    public function isInactive()
     {
-        return in_array($role, $this->roles ?? []);
+        return $this->status === 'inactive';
     }
 
     /**
-     * Check if admin has a specific permission.
+     * Get the formatted balance.
      */
-    public function hasPermission(string $permission): bool
+    public function getFormattedBalanceAttribute()
     {
-        return in_array($permission, $this->permissions ?? []);
+        return 'Rp ' . number_format($this->balance, 0, ',', '.');
     }
 
     /**
-     * Check if admin can access Filament panel.
+     * Override the save method to prevent database operations.
      */
-    public function canAccessPanel(Panel $panel): bool
+    public function save(array $options = [])
     {
-        return $this->is_active;
+        // Since we're not using database, we'll just return true
+        // In a real implementation, you might want to sync with Go API
+        return true;
     }
 
     /**
-     * Update last login timestamp.
+     * Override the delete method to prevent database operations.
      */
-    public function updateLastLogin(): bool
+    public function delete()
     {
-        $this->last_login_at = now();
-        return $this->save();
+        // Since we're not using database, we'll just return true
+        return true;
     }
 
     /**
-     * Get the roles as a formatted string.
+     * Override the fresh method to prevent database operations.
      */
-    public function getRolesStringAttribute(): string
+    public function fresh($with = [])
     {
-        return implode(', ', $this->roles ?? []);
+        return $this;
     }
 
     /**
-     * Get the permissions as a formatted string.
+     * Override the refresh method to prevent database operations.
      */
-    public function getPermissionsStringAttribute(): string
+    public function refresh()
     {
-        return implode(', ', $this->permissions ?? []);
+        return $this;
     }
 
     /**
-     * Get the status color for display.
+     * Get the admin's avatar URL.
      */
-    public function getStatusColorAttribute(): string
+    public function getAvatarUrlAttribute()
     {
-        return $this->is_active ? 'success' : 'danger';
+        return 'https://ui-avatars.com/api/?name=' . urlencode($this->full_name) . '&color=7F9CF5&background=EBF4FF';
+    }
+
+    /**
+     * Get the admin's initials.
+     */
+    public function getInitialsAttribute()
+    {
+        $names = explode(' ', $this->full_name);
+        $initials = '';
+        
+        foreach ($names as $name) {
+            if (!empty($name)) {
+                $initials .= strtoupper(substr($name, 0, 1));
+            }
+        }
+        
+        return $initials ?: strtoupper(substr($this->email, 0, 2));
+    }
+
+    /**
+     * Get the admin's JWT token if available.
+     */
+    public function getToken()
+    {
+        return $this->getAttribute('token');
+    }
+
+    /**
+     * Set the admin's JWT token.
+     */
+    public function setToken($token)
+    {
+        return $this->setAttribute('token', $token);
+    }
+
+    /**
+     * Check if admin has a valid token.
+     */
+    public function hasValidToken()
+    {
+        return !empty($this->getToken());
+    }
+
+    /**
+     * Convert the model instance to an array.
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        
+        // Add computed attributes
+        $array['full_name'] = $this->full_name;
+        $array['display_name'] = $this->display_name;
+        $array['initials'] = $this->initials;
+        $array['avatar_url'] = $this->avatar_url;
+        $array['formatted_balance'] = $this->formatted_balance;
+        $array['is_active'] = $this->isActive();
+        $array['is_blocked'] = $this->isBlocked();
+        $array['is_inactive'] = $this->isInactive();
+        
+        return $array;
     }
 }

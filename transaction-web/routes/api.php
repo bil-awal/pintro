@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Admin\AdminAuthController;
+use App\Http\Controllers\Admin\AdminDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,7 +44,45 @@ Route::prefix('webhooks')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Admin API Routes (Authentication Required)
+| Custom Admin API Routes (Go API Authentication)
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('admin/api')->name('admin.api.')->group(function () {
+    
+    // Authentication endpoints
+    Route::prefix('auth')->name('auth.')->group(function () {
+        Route::post('/login', [AdminAuthController::class, 'login'])->name('login');
+        Route::post('/logout', [AdminAuthController::class, 'logout'])->middleware('admin.auth')->name('logout');
+        Route::get('/check', [AdminAuthController::class, 'check'])->name('check');
+    });
+    
+    // Protected API routes
+    Route::middleware(['admin.auth', 'admin.token'])->group(function () {
+        
+        // Profile endpoints
+        Route::prefix('profile')->name('profile.')->group(function () {
+            Route::get('/', [AdminAuthController::class, 'profile'])->name('show');
+            Route::put('/', [AdminAuthController::class, 'updateProfile'])->name('update');
+        });
+        
+        // Dashboard data
+        Route::prefix('dashboard')->name('dashboard.')->group(function () {
+            Route::get('/stats', [AdminDashboardController::class, 'stats'])->name('stats');
+            Route::get('/recent-transactions', [AdminDashboardController::class, 'recentTransactions'])->name('recent_transactions');
+            Route::get('/user-activity', [AdminDashboardController::class, 'userActivity'])->name('user_activity');
+        });
+        
+        // System endpoints
+        Route::prefix('system')->name('system.')->group(function () {
+            Route::get('/health', [AdminAuthController::class, 'systemHealth'])->name('health');
+        });
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Legacy Admin API Routes (Authentication Required)
 |--------------------------------------------------------------------------
 */
 

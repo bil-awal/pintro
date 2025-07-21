@@ -17,29 +17,33 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create admin users
-        Admin::create([
-            'name' => 'Super Admin',
-            'email' => 'admin@pintro.dev',
-            'password' => Hash::make('password'),
-            'roles' => ['super_admin'],
-            'permissions' => ['*'],
-            'is_active' => true,
-        ]);
+        // Create admin users only if they don't exist
+        if (!Admin::where('email', 'admin@pintro.dev')->exists()) {
+            Admin::create([
+                'name' => 'Super Admin',
+                'email' => 'admin@pintro.dev',
+                'password' => Hash::make('password'),
+                'roles' => ['super_admin'],
+                'permissions' => ['*'],
+                'is_active' => true,
+            ]);
+        }
 
-        Admin::create([
-            'name' => 'Transaction Manager',
-            'email' => 'manager@pintro.dev',
-            'password' => Hash::make('password'),
-            'roles' => ['transaction_manager'],
-            'permissions' => [
-                'view_transactions',
-                'approve_transactions',
-                'manage_users',
-                'view_reports',
-            ],
-            'is_active' => true,
-        ]);
+        if (!Admin::where('email', 'manager@pintro.dev')->exists()) {
+            Admin::create([
+                'name' => 'Transaction Manager',
+                'email' => 'manager@pintro.dev',
+                'password' => Hash::make('password'),
+                'roles' => ['transaction_manager'],
+                'permissions' => [
+                    'view_transactions',
+                    'approve_transactions',
+                    'manage_users',
+                    'view_reports',
+                ],
+                'is_active' => true,
+            ]);
+        }
 
         // Create sample users
         $users = [
@@ -91,12 +95,14 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($users as $userData) {
-            User::create($userData);
+            if (!User::where('email', $userData['email'])->exists()) {
+                User::create($userData);
+            }
         }
 
-        // Create sample transactions
+        // Create sample transactions only if no transactions exist
         $createdUsers = User::all();
-        if ($createdUsers->count() >= 2) {
+        if ($createdUsers->count() >= 2 && Transaction::count() == 0) {
             $transactions = [
                 [
                     'user_id' => $createdUsers[0]->id,
@@ -200,7 +206,9 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($settings as $settingData) {
-            SystemSetting::create($settingData);
+            if (!SystemSetting::where('key', $settingData['key'])->exists()) {
+                SystemSetting::create($settingData);
+            }
         }
     }
 }

@@ -41,7 +41,7 @@ return [
             'provider' => 'users',
         ],
         'admin' => [
-            'driver' => 'session',
+            'driver' => 'go-api',
             'provider' => 'admins',
         ],
     ],
@@ -65,11 +65,11 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'go_service',
+            'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
         'admins' => [
-            'driver' => 'eloquent',
+            'driver' => 'admin-eloquent',
             'model' => App\Models\Admin::class,
         ],
 

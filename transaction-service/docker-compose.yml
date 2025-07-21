@@ -38,7 +38,7 @@ services:
       - DB_PASSWORD=password
       - DB_DATABASE=transaction_db
       - DB_SSL_MODE=disable
-      - JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
+      - JWT_SECRET_KEY=8c100781e252cc0a9c588ea6bcbd60d750b13b42957276415895b028d24427e3
       - JWT_EXPIRE_HOURS=24
       - MIDTRANS_SERVER_KEY=your-midtrans-server-key
       - MIDTRANS_CLIENT_KEY=your-midtrans-client-key
@@ -47,6 +47,8 @@ services:
       - "8080:8080"
     networks:
       - transaction_network
+    volumes:
+      - ./migrations:/migrations
     restart: unless-stopped
 
   # Redis for caching (optional)

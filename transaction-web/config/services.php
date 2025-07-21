@@ -1,29 +1,48 @@
 <?php
 
 return [
-    'transaction_service' => [
-        'base_url' => env('TRANSACTION_SERVICE_URL', 'http://localhost:8080/api/v1'),
-        'timeout' => env('TRANSACTION_SERVICE_TIMEOUT', 30),
-    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Go Transaction Service
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the external Go transaction microservice.
+    |
+    */
 
     'go_transaction' => [
-        'url' => env('GO_TRANSACTION_SERVICE_URL', 'http://localhost:8080'),
-        'api_key' => env('GO_TRANSACTION_API_KEY', ''),
-        'timeout' => env('GO_TRANSACTION_TIMEOUT', 30),
-    ],
+        // Base URL including API prefix
+        'base_url' => env('GO_TRANSACTION_SERVICE_URL', 'http://localhost:8080/api/v1'),
 
-    'midtrans' => [
-        'server_key' => env('MIDTRANS_SERVER_KEY', ''),
-        'client_key' => env('MIDTRANS_CLIENT_KEY', ''),
-        'environment' => env('MIDTRANS_ENVIRONMENT', 'sandbox'), // sandbox or production
-        'is_production' => env('MIDTRANS_IS_PRODUCTION', false),
-        'is_sanitized' => env('MIDTRANS_IS_SANITIZED', true),
-        'is_3ds' => env('MIDTRANS_IS_3DS', true),
+        // Request timeout in seconds
+        'timeout' => env('GO_TRANSACTION_TIMEOUT', 30),
+
+        // API key header value
+        'api_key' => env('GO_TRANSACTION_API_KEY', '8c100781e252cc0a9c588ea6bcbd60d750b13b42957276415895b028d24427e3'),
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Default Services Configuration
+    | Midtrans Payment Gateway
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the Midtrans payment gateway integration.
+    |
+    */
+
+    'midtrans' => [
+        'server_key'     => env('MIDTRANS_SERVER_KEY', ''),
+        'client_key'     => env('MIDTRANS_CLIENT_KEY', ''),
+        'environment'    => env('MIDTRANS_ENVIRONMENT', 'sandbox'),
+        'is_production'  => filter_var(env('MIDTRANS_IS_PRODUCTION', false), FILTER_VALIDATE_BOOLEAN),
+        'is_sanitized'   => filter_var(env('MIDTRANS_IS_SANITIZED', true), FILTER_VALIDATE_BOOLEAN),
+        'is_3ds'         => filter_var(env('MIDTRANS_IS_3DS', true), FILTER_VALIDATE_BOOLEAN),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Mail & Notification Services
     |--------------------------------------------------------------------------
     */
 
@@ -39,7 +58,7 @@ return [
     ],
 
     'ses' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
+        'key'    => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
@@ -51,7 +70,8 @@ return [
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
+            'channel'              => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+
 ];
